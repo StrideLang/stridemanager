@@ -32,83 +32,98 @@
     Authors: Andres Cabrera and Joseph Tilbian
 */
 
-#include <QCommandLineParser>
-#include <QCoreApplication>
-#include <QDebug>
-#include <QDir>
-#include <QFile>
-#include <QFileInfo>
-
 #include <iostream>
+#include <string>
+#include <vector>
 
-//#include "stride/parser/ast.h"
 #include "stride/codegen/toolmanager.hpp"
 
 using namespace strd;
 
+void printUsage(const std::string &programName) {
+  std::cout << "Usage: " << programName << " [options] <strideroot path>\n\n"
+            << "Stride command line tool manager (0.1-alpha)\n\n"
+            << "Arguments:\n"
+            << "  strideroot path       Path to strideroot\n\n"
+            << "Options:\n"
+            << "  -g, --generate        Generate all local configurations\n"
+            << "  -l, --list            List all local configurations\n"
+            << "  -n, --interactive     Update interactively\n"
+            << "  -i, --install <name>  Install framework\n"
+            << "  -h, --help            Displays this help\n"
+            << "  -v, --version         Displays version information\n";
+}
+
 int main(int argc, char *argv[]) {
-  QCoreApplication app(argc, argv);
-  QCoreApplication::setApplicationName("strdtools");
-  QCoreApplication::setApplicationVersion("0.1-alpha");
+  bool generate = false;
+  bool list = false;
+  bool interactive = false;
+  std::string installFramework;
+  std::string strideRoot;
 
-  QCommandLineParser parser;
-  parser.setApplicationDescription("Stride command line tool manager");
-  parser.addPositionalArgument(
-      "strideroot path",
-      QCoreApplication::translate("main", "Path to strideroot"));
-  //  parser.addPositionalArgument(
-  //      "destination",
-  //      QCoreApplication::translate("main", "Destination directory."));
+  for (int i = 1; i < argc; ++i) {
+    std::string arg = argv[i];
 
-  parser.addOption({"g", QCoreApplication::translate(
-                             "main", "Generate all local configurations")});
+    if (arg == "-h" || arg == "--help") {
+      printUsage(argv[0]);
+      return 0;
+    } else if (arg == "-v" || arg == "--version") {
+      std::cout << "strdtools version 0.1-alpha\n";
+      return 0;
+    } else if (arg == "-g" || arg == "--generate") {
+      generate = true;
+    } else if (arg == "-l" || arg == "--list") {
+      list = true;
+    } else if (arg == "-n" || arg == "--interactive") {
+      interactive = true;
+    } else if (arg == "-i" || arg == "--install") {
+      if (i + 1 < argc) {
+        installFramework = argv[++i];
+      } else {
+        std::cerr << "Error: -i/--install requires a framework argument.\n";
+        return -1;
+      }
+    } else if (arg.rfind("-i=", 0) == 0) {
+      installFramework = arg.substr(3);
+    } else if (arg.rfind("--install=", 0) == 0) {
+      installFramework = arg.substr(10);
+    } else if (!arg.empty() && arg[0] == '-') {
+      std::cerr << "Unknown option: " << arg << "\n";
+      printUsage(argv[0]);
+      return -1;
+    } else {
+      if (strideRoot.empty()) {
+        strideRoot = arg;
+      }
+    }
+  }
 
-  parser.addOption({"l", QCoreApplication::translate(
-                             "main", "List all local configurations")});
-  parser.addOption(
-      {"n", QCoreApplication::translate("main", "Update interactively")});
-
-  parser.addOption({"i",
-                    QCoreApplication::translate("main", "install framework"),
-                    "install", ""});
-
-  parser.addHelpOption();
-  parser.addVersionOption();
-  parser.process(app);
-
-  const QStringList args = parser.positionalArguments();
-  if (args.size() < 1) {
-    std::cout << parser.helpText().toStdString() << std::endl;
+  if (strideRoot.empty()) {
+    printUsage(argv[0]);
     return -1;
   }
 
-  // Process strideroot
-  QString strideRoot = args.at(0);
+  (void)interactive; // TODO use interactive mode
 
-  ToolManager toolManager(strideRoot.toStdString());
+  ToolManager toolManager(strideRoot);
 
-  bool updateInteractively = parser.isSet("i"); // TODO use
-  for (auto toolTemplate : toolManager.toolTemplates) {
-    std::cout << "Tool Template: " << toolTemplate->strideName << std::endl;
-    std::cout << "  displayName:" << toolTemplate->displayName << std::endl;
+  for (const auto &toolTemplate : toolManager.toolTemplates) {
+    std::cout << "Tool Template: " << toolTemplate->strideName << "\n"
+              << "  displayName: " << toolTemplate->displayName << "\n";
   }
 
-  // Process generate local command
-  if (parser.isSet("g")) {
-    std::cout << "Updating local tools config" << std::endl;
+  if (generate) {
+    std::cout << "Updating local tools config\n";
     toolManager.updateAllLocalConfigs();
   }
 
-  if (parser.isSet("l")) {
-
+  if (list) {
     // TODO add list
   }
 
-  if (parser.isSet("i")) {
-    auto frameworkToInstall = parser.value("i");
+  if (!installFramework.empty()) {
+    // TODO add framework installation logic
   }
-
-  // TODO add flag to update individual
 
   return 0;
 }
